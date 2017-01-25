@@ -4,6 +4,7 @@ rows = 'ABCDEFGHI'
 cols = '123456789'
 possible_digits = '123456789'
 
+# Utility functions
 def cross(a, b):
     """
     Return a list with all concatenations of a letter in
@@ -17,27 +18,6 @@ def cross(a, b):
         letter in `a` with a letter in `b`
     """
     return [s + t for s in a for t in b]
-
-boxes = cross(rows, cols)
-
-# Lets get all the row units
-# row_units[0] = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1']
-row_units = [cross(row, cols) for row in rows]
-
-# Same for column units
-# column_units[0] = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1']
-column_units = [cross(rows, col) for col in cols]
-
-# And now for square units
-# square_units[0] = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3']
-square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
-
-diagonals = [['A1', 'B2', 'C3', 'D4', 'E5', 'F6', 'G7', 'H8', 'I9'],
-            ['A9', 'B8', 'C7', 'D6', 'E5', 'F4', 'G3', 'H2', 'I1']]
-
-unitlist = row_units + column_units + square_units + diagonals
-units = dict((box, [unit for unit in unitlist if box in unit]) for box in boxes)
-peers = dict((box, set(sum(units[box], []))-set([box])) for box in boxes)
 
 def assign_value(sudoku, box, value):
     """Please use this function to update your values dictionary!
@@ -61,37 +41,22 @@ def get_pairs(sudoku):
     """Return all the boxes with just 2 digits"""
     return [box for box in boxes if len(sudoku[box]) == 2]
 
-def naked_twins(sudoku):
-    """Eliminates values using the naked twins strategy.
+def solved_boxes(sudoku):
+    """Returns the number of boxes solved in a sudoku"""
+    return len([box for box in sudoku.keys() if len(sudoku[box]) == 1])
 
-    Args:
-        sudoku: A dict representation of the sudoku
+def update_dict(dictionary, key, value):
+    """Updates the dict `dictionary` and returns the dict"""
+    dictionary.update({key: value})
+    return dictionary
 
-    Returns:
-        A dict representation of the sudoku with the
-        naked twins deleted from it's peers.
-    """
-    pair_list = get_pairs(sudoku)
-    for box in pair_list:
-        for unit in units[box]:
-            # Find the peers in the unit that contains 2 digits
-            # but is not the box itself
-            peers_with_pairs = set(unit).intersection(set(peers[box])).intersection(set(pair_list))
+def some(seq):
+    """Return some element of `seq` that is `True` http://norvig.com/sudoku.html"""
+    for e in seq:
+        if e: return e
+    return False
 
-            for peer in peers_with_pairs:
-                if sudoku[box] == sudoku[peer]:
-                    for item in set(unit).difference(set([box, peer])):
-                        digit_1 = sudoku[box][0]
-                        digit_2 = sudoku[box][1]
-
-                        if digit_1 in sudoku[item]:
-                            sudoku[item] = sudoku[item].replace(digit_1, '')
-                            assign_value(sudoku, item, sudoku[item])
-                        if digit_2 in sudoku[item]:
-                            sudoku[item] = sudoku[item].replace(digit_2, '')
-                            assign_value(sudoku, item, sudoku[item])
-    return sudoku
-
+# Display functions
 def grid_values(grid):
     """
     Returns a dict that represents a sudoku.
@@ -130,6 +95,59 @@ def display(values):
         print(''.join(values[row + col].center(width) + ('|' if col in '36' else '') for col in cols))
         if row in 'CF': print(line)
     return
+# Sudoku structure variables
+boxes = cross(rows, cols)
+
+# Lets get all the row units
+# row_units[0] = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1']
+row_units = [cross(row, cols) for row in rows]
+
+# Same for column units
+# column_units[0] = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1']
+column_units = [cross(rows, col) for col in cols]
+
+# And now for square units
+# square_units[0] = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3']
+square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
+
+diagonal_units = [[row + cols[rows.index(row)] for row in rows],[row + cols[sorted(rows,reverse=True).index(row)] for row in rows]]
+unitlist = row_units + column_units + square_units + diagonal_units
+units = dict((box, [unit for unit in unitlist if box in unit]) for box in boxes)
+peers = dict((box, set(sum(units[box], []))-set([box])) for box in boxes)
+
+
+# Constrain startegies
+
+def naked_twins(sudoku):
+    """Eliminates values using the naked twins strategy.
+
+    Args:
+        sudoku: A dict representation of the sudoku
+
+    Returns:
+        A dict representation of the sudoku with the
+        naked twins deleted from it's peers.
+    """
+    pair_list = get_pairs(sudoku)
+    for box in pair_list:
+        for unit in units[box]:
+            # Find the peers in the unit that contains 2 digits
+            # but is not the box itself
+            peers_with_pairs = set(unit).intersection(set(peers[box])).intersection(set(pair_list))
+
+            for peer in peers_with_pairs:
+                if sudoku[box] == sudoku[peer]:
+                    for item in set(unit).difference(set([box, peer])):
+                        digit_1 = sudoku[box][0]
+                        digit_2 = sudoku[box][1]
+
+                        if digit_1 in sudoku[item]:
+                            sudoku = assign_value(sudoku, item, sudoku[item].replace(digit_1, ''))
+                        if digit_2 in sudoku[item]:
+                            assign_value(sudoku, item, sudoku[item].replace(digit_2, ''))
+
+    return sudoku
+
 
 def eliminate(sudoku):
     """
@@ -147,8 +165,8 @@ def eliminate(sudoku):
     for box in solved_values:
         value = sudoku[box]
         for peer in peers[box]:
-            sudoku[peer] = sudoku[peer].replace(value, '')
-            assign_value(sudoku, peer, sudoku[peer])
+            assign_value(sudoku, peer, sudoku[peer].replace(value, ''))
+
 
     return sudoku
 
@@ -166,14 +184,10 @@ def only_choice(sudoku):
         for value in possible_digits:
             value_places = [box for box in unit if value in sudoku[box]]
             if len(value_places) == 1:
-                sudoku[value_places[0]] = value
-                assign_value(sudoku, value_places[0], sudoku[value_places[0]])
+                assign_value(sudoku, value_places[0], value)
 
     return sudoku
 
-def solved_boxes(sudoku):
-    """Returns the number of boxes solved in a sudoku"""
-    return len([box for box in sudoku.keys() if len(sudoku[box]) == 1])
 
 def reduce_puzzle(sudoku):
     """
@@ -205,16 +219,6 @@ def reduce_puzzle(sudoku):
 def solve(grid):
     return search(grid_values(grid))
 
-def update_dict(dictionary, key, value):
-    """Updates the dict `dictionary` and returns the dict"""
-    dictionary.update({key: value})
-    return dictionary
-
-def some(seq):
-    """Return some element of `seq` that is `True` http://norvig.com/sudoku.html"""
-    for e in seq:
-        if e: return e
-    return False
 
 def search(sudoku):
     """
